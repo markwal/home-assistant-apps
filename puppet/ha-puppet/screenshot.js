@@ -9,6 +9,8 @@ const HEADER_HEIGHT = 56;
 // Cap (px) for an auto-height ("WIDTHxauto") screenshot so a very long
 // dashboard can't produce a runaway image. Content taller than this is clipped.
 const MAX_AUTO_HEIGHT = 4000;
+const SECURITY_INTERSTITIAL_TIMEOUT = 1500;
+const SECURITY_INTERSTITIAL_NAVIGATION_TIMEOUT = 10000;
 
 // Dithering algorithms
 function applyDithering(data, width, height, palette, channels = 4, algorithm = "atkinson", paletteColors = null) {
@@ -361,6 +363,53 @@ export class Browser {
     return this.page;
   }
 
+  async acceptSecurityInterstitialIfPresent(page, targetPageUrl) {
+    const detailsButton = await page
+      .waitForSelector("#details-button", {
+        timeout: SECURITY_INTERSTITIAL_TIMEOUT,
+      })
+      .catch(() => undefined);
+
+    if (!detailsButton) {
+      return false;
+    }
+
+    console.info(
+      `Security warning shown for ${targetPageUrl}; opening advanced options`,
+    );
+    await detailsButton.click();
+
+    const proceedLink = await page
+      .waitForSelector("#proceed-link", {
+        timeout: SECURITY_INTERSTITIAL_TIMEOUT,
+      })
+      .catch(() => undefined);
+
+    if (!proceedLink) {
+      console.info(
+        `Security warning for ${targetPageUrl} did not show an unsafe proceed link`,
+      );
+      return false;
+    }
+
+    console.info(`Proceeding through security warning for ${targetPageUrl}`);
+    await Promise.all([
+      page
+        .waitForNavigation({
+          timeout: SECURITY_INTERSTITIAL_NAVIGATION_TIMEOUT,
+          waitUntil: "domcontentloaded",
+        })
+        .catch((err) =>
+          console.info(
+            `Continuing after security warning without navigation event: ${err.message}`,
+          ),
+        ),
+      proceedLink.click(),
+    ]);
+    console.info(`Security warning accepted for ${targetPageUrl}`);
+    return true;
+  }
+
   async navigatePage({
     pagePath,
     viewport,
@@ -434,12 +483,31 @@ export class Browser {
         );
 
         console.info(`Opening Home Assistant page ${targetPageUrl}`);
-        const response = await page.goto(targetPageUrl);
+        let response;
+        let acceptedSecurityWarning = false;
+        try {
+          response = await page.goto(targetPageUrl);
+        } catch (err) {
+          console.info(
+            `Initial navigation to ${targetPageUrl} failed: ${err.message}`,
+          );
+          acceptedSecurityWarning = await this.acceptSecurityInterstitialIfPresent(
+            page,
+            targetPageUrl,
+          );
+          if (!acceptedSecurityWarning) {
+            throw err;
+          }
+        }
+        if (response) {
+          acceptedSecurityWarning =
+            await this.acceptSecurityInterstitialIfPresent(page, targetPageUrl);
+        }
         const responseStatus = response?.status() ?? 0;
         console.info(
-          `Home Assistant page response status=${responseStatus} url=${response?.url() ?? targetPageUrl}`,
+          `Home Assistant page response status=${responseStatus} url=${page.url()}`,
         );
-        if (!response?.ok()) {
+        if (response && !acceptedSecurityWarning && !response.ok()) {
           throw new CannotOpenPageError(responseStatus, targetPageUrl);
         }
         page.removeScriptToEvaluateOnNewDocument(evaluateIdentifier.identifier);
