@@ -13,7 +13,7 @@ Easily create screenshots of your Home Assistant dashboards. Allowing you to put
 
 [Read the Puppet README](./puppet/README.md) to ensure you educate yourself about all the options.
 
-[![Open your Home Assistant instance and show the dashboard of an add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=0f1cc410_puppet&repository_url=https%3A%2F%2Fgithub.com%2Fballoob%2Fhome-assistant-addons)
+[![Open your Home Assistant instance and show the dashboard of an add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=0f1cc410_puppet&repository_url=https%3A%2F%2Fgithub.com%2Fmarkwal%2Fhome-assistant-apps)
 
 ## OpenDisplay Wi-Fi
 
@@ -21,4 +21,4 @@ Run an [OpenDisplay](https://opendisplay.org) Wi-Fi server as a Home Assistant a
 
 [Read the OpenDisplay Wi-Fi README](./opendisplay-wifi/README.md) for setup and usage details.
 
-[![Open your Home Assistant instance and show the dashboard of an add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=0f1cc410_opendisplay-wifi&repository_url=https%3A%2F%2Fgithub.com%2Fballoob%2Fhome-assistant-addons)
+[![Open your Home Assistant instance and show the dashboard of an add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=0f1cc410_opendisplay-wifi&repository_url=https%3A%2F%2Fgithub.com%2Fmarkwal%2Fhome-assistant-apps)

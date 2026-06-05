@@ -354,4 +354,4 @@ Potential improvements:
 - [Puppeteer Documentation](https://pptr.dev/)
 - [Sharp Documentation](https://sharp.pixelplumbing.com/)
 - [Home Assistant Add-on Development](https://developers.home-assistant.io/docs/add-ons/)
-- [GitHub Repository](https://github.com/balloob/home-assistant-addons)
+- [GitHub Repository](https://github.com/markwal/home-assistant-apps)

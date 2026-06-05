@@ -316,7 +316,7 @@ export class Browser {
       return this.page;
     }
 
-    console.log("Starting browser");
+    console.info("Starting browser for page retrieval");
     // We don't catch these errors on purpose, as we're
     // not able to recover once the app fails to start.
     const browser = await puppeteer.launch({
@@ -325,6 +325,7 @@ export class Browser {
       args: puppeteerArgs,
     });
     const page = await browser.newPage();
+    console.info("Browser page ready for retrieval");
 
     // Route all log messages from browser to our add-on log
     // https://pptr.dev/api/puppeteer.pageevents
@@ -376,6 +377,10 @@ export class Browser {
     start = new Date();
     this.busy = true;
     const headerHeight = Math.round(HEADER_HEIGHT * zoom);
+    const targetPageUrl = new URL(pagePath, this.homeAssistantUrl).toString();
+    console.info(
+      `Retrieving page ${pagePath} from ${targetPageUrl} with viewport ${viewport.width}x${viewport.height}`,
+    );
 
     try {
       const page = await this.getPage();
@@ -391,6 +396,9 @@ export class Browser {
         curViewport.width !== viewport.width ||
         curViewport.height !== viewport.height
       ) {
+        console.info(
+          `Setting browser viewport to ${viewport.width}x${viewport.height}`,
+        );
         await page.setViewport(viewport);
       }
 
@@ -425,11 +433,14 @@ export class Browser {
           browserLocalStorage,
         );
 
-        // Open the HA UI
-        const pageUrl = new URL(pagePath, this.homeAssistantUrl).toString();
-        const response = await page.goto(pageUrl);
-        if (!response.ok()) {
-          throw new CannotOpenPageError(response.status(), pageUrl);
+        console.info(`Opening Home Assistant page ${targetPageUrl}`);
+        const response = await page.goto(targetPageUrl);
+        const responseStatus = response?.status() ?? 0;
+        console.info(
+          `Home Assistant page response status=${responseStatus} url=${response?.url() ?? targetPageUrl}`,
+        );
+        if (!response?.ok()) {
+          throw new CannotOpenPageError(responseStatus, targetPageUrl);
         }
         page.removeScriptToEvaluateOnNewDocument(evaluateIdentifier.identifier);
 
@@ -439,6 +450,7 @@ export class Browser {
         }
       } else if (this.lastRequestedPath !== pagePath) {
         // mimick HA frontend navigation (no full reload)
+        console.info(`Navigating existing Home Assistant page to ${pagePath}`);
         await page.evaluate((pagePath) => {
           history.replaceState(
             history.state?.root ? { root: true } : null,
@@ -451,6 +463,7 @@ export class Browser {
         }, pagePath);
       } else {
         // We are already on the correct page
+        console.info(`Reusing current Home Assistant page ${pagePath}`);
         defaultWait = 0;
       }
 
@@ -488,6 +501,7 @@ export class Browser {
 
       // Wait for the page to be loaded.
       try {
+        console.info(`Waiting for Home Assistant content to finish loading`);
         await page.waitForFunction(
           () => {
             const haEl = document.querySelector("home-assistant");
@@ -514,7 +528,7 @@ export class Browser {
           },
         );
       } catch (err) {
-        console.log("Timeout waiting for HA to finish loading");
+        console.info("Timeout waiting for HA to finish loading");
       }
 
       // If the access token is missing/invalid/expired, Home Assistant
@@ -565,10 +579,14 @@ export class Browser {
         extraWait = defaultWait;
       }
       if (extraWait) {
+        console.info(`Waiting ${extraWait} ms before screenshot capture`);
         await new Promise((resolve) => setTimeout(resolve, extraWait));
       }
 
       const end = Date.now();
+      console.info(
+        `Page retrieval finished for ${pagePath} in ${end - start} ms`,
+      );
       return { time: end - start };
     } finally {
       this.busy = false;

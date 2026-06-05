@@ -2,7 +2,7 @@
 
 Easily create screenshots of your Home Assistant dashboards. Allowing you to put them on e-ink screens or any other screen that can display images.
 
-[![Open your Home Assistant instance and show the dashboard of an add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=0f1cc410_puppet&repository_url=https%3A%2F%2Fgithub.com%2Fballoob%2Fhome-assistant-addons)
+[![Open your Home Assistant instance and show the dashboard of an add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=0f1cc410_puppet&repository_url=https%3A%2F%2Fgithub.com%2Fmarkwal%2Fhome-assistant-apps)
 
 ![UI Screenshot](example/ui.png)
 
@@ -14,7 +14,7 @@ Enable the watch dog option to restart the add-on when the browser fails to laun
 
 _This is a prototype, there is NO security. Anyone can access the server and make screenshots of any Home Assistant page._
 
-[![ESPHome device showing a screenshot of a Home Assistant dashboard](https://raw.githubusercontent.com/balloob/home-assistant-addons/main/puppet/example/screenshot.jpg)](./example/)
+[![ESPHome device showing a screenshot of a Home Assistant dashboard](https://raw.githubusercontent.com/markwal/home-assistant-apps/main/puppet/example/screenshot.jpg)](./example/)
 
 ## Configuration
 
