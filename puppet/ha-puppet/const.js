@@ -22,6 +22,8 @@ export const debug = false;
 export const chromiumExecutable = isAddOn ? "/usr/bin/chromium" : (options.chromium_executable || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
 
 export const keepBrowserOpen = options.keep_browser_open || false;
+export const allowInsecureHomeAssistantSsl =
+  options.allow_insecure_home_assistant_ssl || false;
 
 if (!hassToken) {
   console.warn("No access token configured. UI will show configuration instructions.");

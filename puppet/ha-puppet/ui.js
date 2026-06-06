@@ -1,41 +1,199 @@
 import { readFile } from "node:fs/promises";
+import http from "node:http";
+import https from "node:https";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { createConnection, createLongLivedTokenAuth } from "home-assistant-js-websocket";
-import { hassUrl, hassToken, isAddOn } from "./const.js";
+import NodeWebSocket from "ws";
+import {
+  createConnection,
+  createLongLivedTokenAuth,
+  createSocket,
+} from "home-assistant-js-websocket";
+import {
+  allowInsecureHomeAssistantSsl,
+  hassUrl,
+  hassToken,
+  isAddOn,
+} from "./const.js";
 import { loadDevicesConfig } from "./devices.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+function describeError(err) {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+      cause: err.cause ? describeError(err.cause) : undefined,
+    };
+  }
+
+  return {
+    type: typeof err,
+    value: err,
+  };
+}
+
+function describeWebSocketEvent(event) {
+  return {
+    type: event.type,
+    code: "code" in event ? event.code : undefined,
+    reason: "reason" in event ? event.reason : undefined,
+    wasClean: "wasClean" in event ? event.wasClean : undefined,
+    message: "message" in event ? event.message : undefined,
+    error: "error" in event ? describeError(event.error) : undefined,
+  };
+}
+
+async function createDiagnosticSocket(options) {
+  const wsUrl = options.auth?.wsUrl;
+  console.info(`Opening Home Assistant websocket: ${wsUrl}`);
+  if (allowInsecureHomeAssistantSsl) {
+    console.warn(
+      `Allowing insecure TLS for Home Assistant websocket ${wsUrl}`,
+    );
+  }
+
+  const OriginalWebSocket = globalThis.WebSocket;
+  const BaseWebSocket = allowInsecureHomeAssistantSsl
+    ? NodeWebSocket
+    : OriginalWebSocket;
+
+  class DiagnosticWebSocket extends BaseWebSocket {
+    constructor(url, protocols) {
+      if (allowInsecureHomeAssistantSsl) {
+        super(url, protocols, { rejectUnauthorized: false });
+      } else {
+        super(url, protocols);
+      }
+      this.addEventListener("error", (event) => {
+        console.error(
+          `Home Assistant websocket error for ${url}:`,
+          describeWebSocketEvent(event),
+        );
+      });
+      this.addEventListener("close", (event) => {
+        console.info(
+          `Home Assistant websocket closed for ${url}:`,
+          describeWebSocketEvent(event),
+        );
+      });
+    }
+  }
+
+  globalThis.WebSocket = DiagnosticWebSocket;
+  try {
+    return await createSocket(options);
+  } finally {
+    globalThis.WebSocket = OriginalWebSocket;
+  }
+}
+
+function fetchJsonWithInsecureTls(url, options) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const client = parsedUrl.protocol === "https:" ? https : http;
+    const request = client.request(
+      parsedUrl,
+      {
+        method: options.method || "GET",
+        headers: options.headers,
+        rejectUnauthorized: parsedUrl.protocol === "https:" ? false : undefined,
+      },
+      (response) => {
+        let body = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+        response.on("end", () => {
+          resolve({
+            ok: response.statusCode >= 200 && response.statusCode < 300,
+            status: response.statusCode,
+            statusText: response.statusMessage,
+            json: async () => JSON.parse(body),
+          });
+        });
+      },
+    );
+    request.on("error", reject);
+    request.end();
+  });
+}
+
+function fetchHomeAssistantConfig(configUrl) {
+  const options = {
+    headers: {
+      Authorization: `Bearer ${hassToken}`,
+      "Content-Type": "application/json",
+    },
+  };
+
+  if (
+    allowInsecureHomeAssistantSsl &&
+    new URL(configUrl).protocol === "https:"
+  ) {
+    console.warn(`Allowing insecure TLS for Home Assistant REST ${configUrl}`);
+    return fetchJsonWithInsecureTls(configUrl, options);
+  }
+
+  return fetch(configUrl, options);
+}
+
+async function runFetchStep(step, action) {
+  console.info(`Fetching Home Assistant data: ${step}`);
+  try {
+    return await action();
+  } catch (err) {
+    console.error(
+      `Error fetching Home Assistant data during ${step}:`,
+      describeError(err),
+    );
+    throw err;
+  }
+}
 
 /**
  * Fetch Home Assistant data via WebSocket and REST API
  * @returns {Promise<Object>} The Home Assistant data
  */
 async function fetchHomeAssistantData() {
+  let connection;
   try {
-    const auth = createLongLivedTokenAuth(hassUrl, hassToken);
-    const connection = await createConnection({ auth });
+    const auth = await runFetchStep("creating long-lived token auth", () =>
+      createLongLivedTokenAuth(hassUrl, hassToken),
+    );
+    connection = await runFetchStep("opening websocket connection", () =>
+      createConnection({ auth, createSocket: createDiagnosticSocket }),
+    );
 
     // Fetch themes and network URLs via WebSocket
     const [themesResult, networkResult] = await Promise.all([
-      connection.sendMessagePromise({
-        type: "frontend/get_themes",
-      }),
-      connection.sendMessagePromise({
-        type: "network/url",
-      }),
+      runFetchStep("fetching frontend themes", () =>
+        connection.sendMessagePromise({
+          type: "frontend/get_themes",
+        }),
+      ),
+      runFetchStep("fetching network URLs", () =>
+        connection.sendMessagePromise({
+          type: "network/url",
+        }),
+      ),
     ]);
 
-    connection.close();
+    await runFetchStep("closing websocket connection", () => connection.close());
+    connection = undefined;
 
     // Fetch config via REST API to get language
-    const configResponse = await fetch(`${hassUrl}/api/config`, {
-      headers: {
-        Authorization: `Bearer ${hassToken}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const configUrl = `${hassUrl}/api/config`;
+    const configResponse = await runFetchStep("fetching REST config", () =>
+      fetchHomeAssistantConfig(configUrl),
+    );
+    console.info(
+      `Fetching Home Assistant data: REST config responded ${configResponse.status} ${configResponse.statusText}`,
+    );
 
     const config = configResponse.ok ? await configResponse.json() : null;
 
@@ -45,12 +203,23 @@ async function fetchHomeAssistantData() {
       config: config,
     };
   } catch (err) {
-    console.error("Error fetching Home Assistant data:", err);
+    console.error("Error fetching Home Assistant data:", describeError(err));
     return {
       themes: null,
       network: null,
       config: null,
     };
+  } finally {
+    if (connection) {
+      try {
+        connection.close();
+      } catch (err) {
+        console.error(
+          "Error closing Home Assistant websocket after fetch failure:",
+          describeError(err),
+        );
+      }
+    }
   }
 }
 
@@ -161,7 +330,7 @@ export async function handleUIRequest(response) {
     });
     response.end(html);
   } catch (err) {
-    console.error("Error serving UI:", err);
+    console.error("Error serving UI:", describeError(err));
     response.statusCode = 500;
     response.end("Error loading UI");
   }

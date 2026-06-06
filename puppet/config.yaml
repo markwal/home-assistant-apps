@@ -14,7 +14,9 @@ options:
   access_token: ""
   keep_browser_open: false
   home_assistant_url: "http://homeassistant:8123"
+  allow_insecure_home_assistant_ssl: false
 schema:
   access_token: str
   keep_browser_open: bool
   home_assistant_url: str
+  allow_insecure_home_assistant_ssl: bool
