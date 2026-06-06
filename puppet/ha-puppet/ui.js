@@ -14,6 +14,7 @@ import {
   hassUrl,
   hassToken,
   isAddOn,
+  serverSsl,
 } from "./const.js";
 import { loadDevicesConfig } from "./devices.js";
 
@@ -322,7 +323,11 @@ export async function handleUIRequest(response) {
     // Inject window.hass and window.devices data into the HTML (pretty formatted)
     const hassScriptTag = `<script>window.hass = ${JSON.stringify(hassData, null, 2)};</script>`;
     const devicesScriptTag = `<script>window.devices = ${JSON.stringify(devicesData, null, 2)};</script>`;
-    html = html.replace("</head>", `${hassScriptTag}\n  ${devicesScriptTag}\n  </head>`);
+    const puppetScriptTag = `<script>window.puppet = ${JSON.stringify({ ssl: serverSsl }, null, 2)};</script>`;
+    html = html.replace(
+      "</head>",
+      `${hassScriptTag}\n  ${devicesScriptTag}\n  ${puppetScriptTag}\n  </head>`,
+    );
 
     response.writeHead(200, {
       "Content-Type": "text/html",

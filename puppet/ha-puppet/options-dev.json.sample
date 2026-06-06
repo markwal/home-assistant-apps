@@ -3,5 +3,8 @@
   "access_token": "",
   "chromium_executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "keep_browser_open": false,
-  "allow_insecure_home_assistant_ssl": false
+  "allow_insecure_home_assistant_ssl": false,
+  "ssl": false,
+  "certfile": "",
+  "keyfile": ""
 }

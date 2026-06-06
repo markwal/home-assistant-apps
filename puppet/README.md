@@ -25,13 +25,16 @@ _This is a prototype, there is NO security. Anyone can access the server and mak
 - home_assistant_url: Base URL of your Home Assistant instance that the add-on browser should open when taking screenshots. Defaults to `http://homeassistant:8123` which is the internal URL at which the add-on can reach Home Assistant. You can override it if your instance has configured SSL certificates inside Home Assistant and requires to be reached via a different hostname or port (e.g., http://my-ha.local:8123 or https://example.duckdns.org).
 - keep_browser_open: If true, keeps the Chromium browser alive between requests.
 - allow_insecure_home_assistant_ssl: If true, lets the server-side Home Assistant WebSocket and REST API calls connect to an HTTPS Home Assistant URL with an untrusted certificate. Use only on trusted local networks.
+- ssl: If true, serves Puppet itself over HTTPS on port 10000.
+- certfile: Certificate file name inside Home Assistant's `/ssl` folder when `ssl` is true. Defaults to `fullchain.pem`.
+- keyfile: Private key file name inside Home Assistant's `/ssl` folder when `ssl` is true. Defaults to `privkey.pem`.
 
 ## Web UI
 
 The add-on now includes a web-based user interface to help you easily configure and preview screenshots. You can access it by:
 
 1. Opening the add-on's Web UI from the Home Assistant Supervisor interface
-2. Or navigating directly to `http://homeassistant.local:10000/`
+2. Or navigating directly to `http://homeassistant.local:10000/` or `https://homeassistant.local:10000/` when `ssl` is enabled
 
 The Web UI provides:
 - Interactive form to configure screenshot parameters (path, viewport size, format, theme, etc.)
@@ -42,7 +45,7 @@ This is particularly useful for testing different settings and finding the perfe
 
 ## Usage
 
-Starting the add-on will launch a new server on port 10000. Any path you request will return a screenshot of that page. You will need to specify the viewport size you want.
+Starting the add-on will launch a new server on port 10000. If `ssl` is enabled, port 10000 is HTTPS-only. Any path you request will return a screenshot of that page. You will need to specify the viewport size you want.
 
 For example, to get a 1000px x 1000px screenshot of your default dashboard, fetch:
 

@@ -1,6 +1,16 @@
 import http from "node:http";
+import https from "node:https";
+import { readFileSync } from "node:fs";
 import { Browser } from "./screenshot.js";
-import { isAddOn, hassUrl, hassToken, keepBrowserOpen } from "./const.js";
+import {
+  isAddOn,
+  hassUrl,
+  hassToken,
+  keepBrowserOpen,
+  serverCertfile,
+  serverKeyfile,
+  serverSsl,
+} from "./const.js";
 import { CannotOpenPageError } from "./error.js";
 import { handleUIRequest } from "./ui.js";
 import { loadDevicesConfig, getDeviceConfig } from "./devices.js";
@@ -372,12 +382,38 @@ class RequestHandler {
 const browser = new Browser(hassUrl, hassToken);
 const requestHandler = new RequestHandler(browser);
 const port = 10000;
-const server = http.createServer((request, response) =>
-  requestHandler.handleRequest(request, response),
-);
+const requestListener = (request, response) =>
+  requestHandler.handleRequest(request, response);
+
+function readSslFile(path, description) {
+  if (!path) {
+    throw new Error(
+      `SSL is enabled but no ${description} path is configured`,
+    );
+  }
+
+  try {
+    return readFileSync(path);
+  } catch (err) {
+    throw new Error(
+      `SSL is enabled but the configured ${description} could not be read at ${path}: ${err.message}`,
+    );
+  }
+}
+
+const server = serverSsl
+  ? https.createServer(
+      {
+        cert: readSslFile(serverCertfile, "certificate file"),
+        key: readSslFile(serverKeyfile, "key file"),
+      },
+      requestListener,
+    )
+  : http.createServer(requestListener);
 server.listen(port);
 const now = new Date();
+const serverProtocol = serverSsl ? "https" : "http";
 const serverUrl = isAddOn
-  ? `http://homeassistant.local:${port}`
-  : `http://localhost:${port}`;
+  ? `${serverProtocol}://homeassistant.local:${port}`
+  : `${serverProtocol}://localhost:${port}`;
 console.log(`[${now.toLocaleTimeString()}] Visit server at ${serverUrl}`);

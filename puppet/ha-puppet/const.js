@@ -1,4 +1,5 @@
-import { readFileSync, existsSync } from "fs";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // load first file that exists
 const optionsFile = ["./options-dev.json", "/data/options.json"].find(
@@ -24,6 +25,13 @@ export const chromiumExecutable = isAddOn ? "/usr/bin/chromium" : (options.chrom
 export const keepBrowserOpen = options.keep_browser_open || false;
 export const allowInsecureHomeAssistantSsl =
   options.allow_insecure_home_assistant_ssl || false;
+export const serverSsl = options.ssl || false;
+export const serverCertfile = isAddOn
+  ? join("/ssl", (options.certfile || "fullchain.pem").replace(/^[/\\]+/, ""))
+  : options.certfile;
+export const serverKeyfile = isAddOn
+  ? join("/ssl", (options.keyfile || "privkey.pem").replace(/^[/\\]+/, ""))
+  : options.keyfile;
 
 if (!hassToken) {
   console.warn("No access token configured. UI will show configuration instructions.");

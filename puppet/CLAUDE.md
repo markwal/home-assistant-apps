@@ -288,22 +288,27 @@ access_token: "long_lived_token_here"
 keep_browser_open: false  # Keep browser alive between requests
 home_assistant_url: "http://homeassistant:8123"  # HA base URL
 allow_insecure_home_assistant_ssl: false  # Allow untrusted HA HTTPS certs
+ssl: false  # Serve Puppet over HTTPS on port 10000
+certfile: "fullchain.pem"  # Certificate in /ssl when ssl is true
+keyfile: "privkey.pem"  # Private key in /ssl when ssl is true
 ```
 
 ## Development
 
 **Local Development:**
-1. Copy `options-dev.json.example` to `options-dev.json`
+1. Copy `options-dev.json.sample` to `options-dev.json`
 2. Add your access token
-3. Run: `npm install && node http.js`
-4. Access UI: `http://localhost:10000/`
+3. Set `ssl` to `true` only if `certfile` and `keyfile` point to local certificate files
+4. Run: `npm install && node http.js`
+5. Access UI: `http://localhost:10000/` or `https://localhost:10000/` when `ssl` is enabled
 
 **Dependencies:**
 ```json
 {
   "puppeteer": "24.26.1",
   "home-assistant-js-websocket": "9.4.0",
-  "sharp": "0.34.4"
+  "sharp": "0.34.4",
+  "ws": "8.18.3"
 }
 ```
 

@@ -1175,6 +1175,9 @@
           try {
             const haUrl = new URL(window.hass.network.internal);
             haUrl.port = "10000";
+            if (window.puppet?.ssl) {
+              haUrl.protocol = "https:";
+            }
             baseUrl = haUrl.origin;
           } catch (e) {
             baseUrl = window.location.origin;
