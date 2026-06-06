@@ -1,5 +1,6 @@
 import puppeteer from "puppeteer";
 import sharp from "sharp"; // Import sharp
+import { createHash } from "node:crypto";
 import { BMPEncoder } from "./bmp.js";
 import { debug, isAddOn, chromiumExecutable } from "./const.js";
 import { CannotOpenPageError } from "./error.js";
@@ -264,12 +265,12 @@ if (isAddOn) {
 }
 
 export class Browser {
-  constructor(homeAssistantUrl, token) {
+  constructor(homeAssistantUrl) {
     this.homeAssistantUrl = homeAssistantUrl;
-    this.token = token;
     this.browser = undefined;
     this.page = undefined;
     this.busy = false;
+    this.lastTokenFingerprint = undefined;
 
     // The last path we requested a screenshot for
     // We store this instead of using page.url() because panels can redirect
@@ -278,6 +279,10 @@ export class Browser {
     this.lastRequestedLang = undefined;
     this.lastRequestedTheme = undefined;
     this.lastRequestedDarkMode = undefined;
+  }
+
+  fingerprintToken(token) {
+    return createHash("sha256").update(token).digest("hex");
   }
 
   async cleanup() {
@@ -418,6 +423,7 @@ export class Browser {
     lang,
     theme,
     dark,
+    token,
   }) {
     let start = new Date();
     if (this.busy) {
@@ -427,11 +433,26 @@ export class Browser {
     this.busy = true;
     const headerHeight = Math.round(HEADER_HEIGHT * zoom);
     const targetPageUrl = new URL(pagePath, this.homeAssistantUrl).toString();
+    const tokenFingerprint = this.fingerprintToken(token);
     console.info(
       `Retrieving page ${pagePath} from ${targetPageUrl} with viewport ${viewport.width}x${viewport.height}`,
     );
+    console.info(
+      `Using Home Assistant token fingerprint ${tokenFingerprint.slice(0, 12)}`,
+    );
 
     try {
+      if (
+        this.lastTokenFingerprint !== undefined &&
+        this.lastTokenFingerprint !== tokenFingerprint
+      ) {
+        console.info(
+          "Home Assistant token changed; resetting browser session before retrieval",
+        );
+        await this.cleanup();
+      }
+      this.lastTokenFingerprint = tokenFingerprint;
+
       const page = await this.getPage();
 
       // We add 56px to the height to account for the header
@@ -464,7 +485,7 @@ export class Browser {
         const browserLocalStorage = {
           ...hassLocalStorageDefaults,
           hassTokens: JSON.stringify({
-            access_token: this.token,
+            access_token: token,
             token_type: "Bearer",
             expires_in: 1800,
             hassUrl,

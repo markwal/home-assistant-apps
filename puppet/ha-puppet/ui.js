@@ -124,10 +124,10 @@ function fetchJsonWithInsecureTls(url, options) {
   });
 }
 
-function fetchHomeAssistantConfig(configUrl) {
+function fetchHomeAssistantConfig(configUrl, token) {
   const options = {
     headers: {
-      Authorization: `Bearer ${hassToken}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
   };
@@ -160,11 +160,11 @@ async function runFetchStep(step, action) {
  * Fetch Home Assistant data via WebSocket and REST API
  * @returns {Promise<Object>} The Home Assistant data
  */
-async function fetchHomeAssistantData() {
+async function fetchHomeAssistantData(token) {
   let connection;
   try {
     const auth = await runFetchStep("creating long-lived token auth", () =>
-      createLongLivedTokenAuth(hassUrl, hassToken),
+      createLongLivedTokenAuth(hassUrl, token),
     );
     connection = await runFetchStep("opening websocket connection", () =>
       createConnection({ auth, createSocket: createDiagnosticSocket }),
@@ -190,7 +190,7 @@ async function fetchHomeAssistantData() {
     // Fetch config via REST API to get language
     const configUrl = `${hassUrl}/api/config`;
     const configResponse = await runFetchStep("fetching REST config", () =>
-      fetchHomeAssistantConfig(configUrl),
+      fetchHomeAssistantConfig(configUrl, token),
     );
     console.info(
       `Fetching Home Assistant data: REST config responded ${configResponse.status} ${configResponse.statusText}`,
@@ -228,10 +228,14 @@ async function fetchHomeAssistantData() {
  * Handle UI page request
  * @param {http.ServerResponse} response - The HTTP response object
  */
-export async function handleUIRequest(response) {
+export async function handleUIRequest(
+  response,
+  token = hassToken,
+  { tokenSource = "configured" } = {},
+) {
   try {
     // If no token is configured, show instruction page
-    if (!hassToken) {
+    if (!token) {
       const htmlPath = join(__dirname, "html", "error_missing_config.html");
       let html = await readFile(htmlPath, "utf-8");
 
@@ -272,7 +276,7 @@ export async function handleUIRequest(response) {
 
     // Normal UI flow with token
     // Fetch Home Assistant data and load device configurations
-    const hassData = await fetchHomeAssistantData();
+    const hassData = await fetchHomeAssistantData(token);
     const devicesData = loadDevicesConfig();
 
     // Check if we failed to connect to Home Assistant
@@ -306,7 +310,12 @@ export async function handleUIRequest(response) {
 
       html = html.replace("{{CONFIG_INSTRUCTIONS}}", configInstructions);
       html = html.replace(/{{HASS_URL}}/g, hassUrl);
-      html = html.replace("{{TOKEN_LENGTH}}", hassToken?.length || 0);
+      html = html.replace(
+        "{{TOKEN_STATUS}}",
+        tokenSource === "request"
+          ? "Provided with this request"
+          : "Configured in add-on options",
+      );
 
       response.writeHead(200, {
         "Content-Type": "text/html",

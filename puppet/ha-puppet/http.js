@@ -22,6 +22,29 @@ const MAX_NEXT_REQUESTS = 100;
 // whitespace; taller content still renders and is captured via the clip.
 const AUTO_RENDER_HEIGHT = 800;
 const BROWSER_TIMEOUT = 30_000; // Timeout for browser inactivity in milliseconds
+const REDACTED_TOKEN = "<redacted>";
+
+function sanitizeRequestUrl(requestUrl) {
+  const sanitizedUrl = new URL(requestUrl.toString());
+  if (sanitizedUrl.searchParams.has("access_token")) {
+    sanitizedUrl.searchParams.set("access_token", REDACTED_TOKEN);
+  }
+  return sanitizedUrl.pathname + sanitizedUrl.search;
+}
+
+function extractBearerToken(authorization) {
+  const match = /^Bearer\s+(.+)$/i.exec(authorization || "");
+  return match?.[1]?.trim() || undefined;
+}
+
+function getEffectiveToken(request, requestUrl) {
+  return (
+    extractBearerToken(request.headers.authorization) ||
+    requestUrl.searchParams.get("access_token") ||
+    hassToken ||
+    undefined
+  );
+}
 
 class RequestHandler {
   constructor(browser) {
@@ -78,6 +101,7 @@ class RequestHandler {
 
   async handleRequest(request, response) {
     const requestUrl = new URL(request.url, "http://localhost");
+    const sanitizedRequestUrl = sanitizeRequestUrl(requestUrl);
 
     if (requestUrl.pathname === "/favicon.ico") {
       response.statusCode = 404;
@@ -86,12 +110,18 @@ class RequestHandler {
     }
 
     if (requestUrl.pathname === "/") {
-      await handleUIRequest(response);
+      await handleUIRequest(response, getEffectiveToken(request, requestUrl), {
+        tokenSource:
+          extractBearerToken(request.headers.authorization) ||
+          requestUrl.searchParams.has("access_token")
+            ? "request"
+            : "configured",
+      });
       return;
     }
 
     const requestId = ++this.requestCount;
-    console.debug(requestId, "Request", request.url);
+    console.debug(requestId, "Request", sanitizedRequestUrl);
 
     const start = new Date();
     if (this.busy) {
@@ -103,7 +133,13 @@ class RequestHandler {
     this.busy = true;
 
     try {
-      console.debug(requestId, "Handling", request.url);
+      console.debug(requestId, "Handling", sanitizedRequestUrl);
+      const token = getEffectiveToken(request, requestUrl);
+      if (!token) {
+        response.statusCode = 401;
+        response.end("Missing Home Assistant access token");
+        return;
+      }
 
       // Load device configurations
       const devicesData = loadDevicesConfig();
@@ -267,6 +303,7 @@ class RequestHandler {
         lang,
         theme,
         dark,
+        token,
       };
 
       // Extract next param and schedule if necessary
@@ -379,7 +416,7 @@ class RequestHandler {
   }
 }
 
-const browser = new Browser(hassUrl, hassToken);
+const browser = new Browser(hassUrl);
 const requestHandler = new RequestHandler(browser);
 const port = 10000;
 const requestListener = (request, response) =>

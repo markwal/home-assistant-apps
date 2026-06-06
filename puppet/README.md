@@ -47,10 +47,18 @@ This is particularly useful for testing different settings and finding the perfe
 
 Starting the add-on will launch a new server on port 10000. If `ssl` is enabled, port 10000 is HTTPS-only. Any path you request will return a screenshot of that page. You will need to specify the viewport size you want.
 
+By default, screenshots use the configured `access_token`. A requester may override it per request with an `Authorization: Bearer <token>` header, or with an `access_token` query parameter for clients that cannot send headers. Header tokens take precedence over query tokens. Query tokens can appear in URLs, logs, browser history, and downstream clients, so prefer the header when possible.
+
 For example, to get a 1000px x 1000px screenshot of your default dashboard, fetch:
 
 ```
 http://homeassistant.local:10000/home?viewport=1000x1000
+```
+
+Or with a per-request token header:
+
+```
+curl -H "Authorization: Bearer YOUR_LONG_LIVED_TOKEN" "http://homeassistant.local:10000/home?viewport=1000x1000"
 ```
 
 ### e-ink displays

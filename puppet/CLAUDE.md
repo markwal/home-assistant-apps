@@ -293,6 +293,11 @@ certfile: "fullchain.pem"  # Certificate in /ssl when ssl is true
 keyfile: "privkey.pem"  # Private key in /ssl when ssl is true
 ```
 
+Screenshot requests may override the configured `access_token` with
+`Authorization: Bearer <token>` or `access_token=<token>`. Headers take
+precedence over query tokens, and query tokens are intentionally supported for
+simple image clients that cannot set headers.
+
 ## Development
 
 **Local Development:**

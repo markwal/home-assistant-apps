@@ -481,6 +481,23 @@
 
           <!-- Generated URL -->
           <div class="mb-4">
+            <div class="mb-3">
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Request Access Token</label
+              >
+              <input
+                type="password"
+                id="accessToken"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                autocomplete="off"
+                value=""
+              />
+              <p class="text-xs text-amber-700 mt-1">
+                When set, this token is added to generated URLs as
+                access_token and may appear in logs, history, and downstream
+                clients.
+              </p>
+            </div>
             <label class="block text-sm font-medium text-gray-700 mb-1"
               >Generated URL</label
             >
@@ -810,6 +827,10 @@
         if (urlParams.has("next")) {
           document.getElementById("next").value = urlParams.get("next");
         }
+        if (urlParams.has("access_token")) {
+          document.getElementById("accessToken").value =
+            urlParams.get("access_token");
+        }
         if (urlParams.has("bmp_mode") && document.getElementById("bmp_mode")) {
           document.getElementById("bmp_mode").value = urlParams.get("bmp_mode");
         }
@@ -1031,6 +1052,10 @@
           if (urlParams.has("next")) {
             document.getElementById("next").value = urlParams.get("next");
           }
+          if (urlParams.has("access_token")) {
+            document.getElementById("accessToken").value =
+              urlParams.get("access_token");
+          }
 
           if (urlParams.has("bmp_mode")) {
             const el = document.getElementById("bmp_mode");
@@ -1085,6 +1110,7 @@
         const invert = document.getElementById("invert").checked;
         const next = document.getElementById("next").value;
         const bmp_mode = document.getElementById("bmp_mode")?.value || "color";
+        const accessToken = document.getElementById("accessToken").value;
 
         // Build query parameters
         const params = new URLSearchParams();
@@ -1167,6 +1193,10 @@
 
         if (format === "bmp" && bmp_mode && bmp_mode !== "color") {
           params.append("bmp_mode", bmp_mode);
+        }
+
+        if (accessToken) {
+          params.append("access_token", accessToken);
         }
 
         // Construct full URL with port 10000
@@ -1466,6 +1496,10 @@
             saveSettings();
           });
         });
+
+      document.getElementById("accessToken").addEventListener("input", () => {
+        updateUrl();
+      });
 
       // Auto-preview when any checkbox or dropdown changes
       document
