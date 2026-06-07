@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.0
+
+- Add optional HTTPS serving for Puppet on port 10000
+- Add per-request Home Assistant access token support
+- Add trusted root CA support for Home Assistant HTTPS connections
+- Improve SSL-related diagnostics for Home Assistant page retrieval
+
 ## 2.5.0
 
 - Allow setting height to `auto` in viewport string (`viewport=1000xauto`)
