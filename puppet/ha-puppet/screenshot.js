@@ -2,7 +2,12 @@ import puppeteer from "puppeteer";
 import sharp from "sharp"; // Import sharp
 import { createHash } from "node:crypto";
 import { BMPEncoder } from "./bmp.js";
-import { debug, isAddOn, chromiumExecutable } from "./const.js";
+import {
+  allowInsecureHomeAssistantSsl,
+  chromiumExecutable,
+  debug,
+  isAddOn,
+} from "./const.js";
 import { CannotOpenPageError } from "./error.js";
 
 const HEADER_HEIGHT = 56;
@@ -263,6 +268,9 @@ const puppeteerArgs = [
 if (isAddOn) {
   puppeteerArgs.push("--enable-low-end-device-mode");
 }
+if (allowInsecureHomeAssistantSsl) {
+  puppeteerArgs.push("--ignore-certificate-errors");
+}
 
 export class Browser {
   constructor(homeAssistantUrl) {
@@ -324,11 +332,17 @@ export class Browser {
     }
 
     console.info("Starting browser for page retrieval");
+    if (allowInsecureHomeAssistantSsl) {
+      console.warn(
+        "Allowing insecure TLS for Home Assistant browser page retrieval",
+      );
+    }
     // We don't catch these errors on purpose, as we're
     // not able to recover once the app fails to start.
     const browser = await puppeteer.launch({
       headless: "shell",
       executablePath: chromiumExecutable,
+      acceptInsecureCerts: allowInsecureHomeAssistantSsl,
       args: puppeteerArgs,
     });
     const page = await browser.newPage();
