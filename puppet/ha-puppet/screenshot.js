@@ -1,12 +1,17 @@
 import puppeteer from "puppeteer";
 import sharp from "sharp"; // Import sharp
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { BMPEncoder } from "./bmp.js";
 import {
   allowInsecureHomeAssistantSsl,
   chromiumExecutable,
   debug,
   isAddOn,
+  trustedRootCa,
+  trustedRootCaFile,
 } from "./const.js";
 import { CannotOpenPageError } from "./error.js";
 
@@ -17,6 +22,9 @@ const HEADER_HEIGHT = 56;
 const MAX_AUTO_HEIGHT = 4000;
 const SECURITY_INTERSTITIAL_TIMEOUT = 1500;
 const SECURITY_INTERSTITIAL_NAVIGATION_TIMEOUT = 10000;
+const CHROMIUM_HOME_DIR = "/tmp/puppet-chromium-home";
+const CHROMIUM_NSS_DB_DIR = join(CHROMIUM_HOME_DIR, ".pki", "nssdb");
+let chromiumTrustedRootCaReady = false;
 
 // Dithering algorithms
 function applyDithering(data, width, height, palette, channels = 4, algorithm = "atkinson", paletteColors = null) {
@@ -272,6 +280,71 @@ if (allowInsecureHomeAssistantSsl) {
   puppeteerArgs.push("--ignore-certificate-errors");
 }
 
+function runCertutil(args, description) {
+  try {
+    execFileSync("certutil", args, { stdio: "ignore" });
+  } catch (err) {
+    throw new Error(`Unable to ${description}: ${err.message}`);
+  }
+}
+
+function ensureChromiumTrustedRootCa() {
+  if (!trustedRootCa) {
+    return undefined;
+  }
+  if (chromiumTrustedRootCaReady) {
+    return CHROMIUM_HOME_DIR;
+  }
+
+  mkdirSync(CHROMIUM_NSS_DB_DIR, { recursive: true });
+
+  try {
+    execFileSync("certutil", ["-L", "-d", `sql:${CHROMIUM_NSS_DB_DIR}`], {
+      stdio: "ignore",
+    });
+  } catch (err) {
+    runCertutil(
+      ["-N", "--empty-password", "-d", `sql:${CHROMIUM_NSS_DB_DIR}`],
+      `initialize Chromium NSS database at ${CHROMIUM_NSS_DB_DIR}`,
+    );
+  }
+
+  const caFingerprint = createHash("sha256")
+    .update(trustedRootCa)
+    .digest("hex")
+    .slice(0, 16);
+  const nickname = `puppet-home-assistant-root-ca-${caFingerprint}`;
+
+  try {
+    execFileSync(
+      "certutil",
+      ["-L", "-d", `sql:${CHROMIUM_NSS_DB_DIR}`, "-n", nickname],
+      { stdio: "ignore" },
+    );
+  } catch (err) {
+    runCertutil(
+      [
+        "-A",
+        "-d",
+        `sql:${CHROMIUM_NSS_DB_DIR}`,
+        "-n",
+        nickname,
+        "-t",
+        "C,,",
+        "-i",
+        trustedRootCaFile,
+      ],
+      `import trusted root CA ${trustedRootCaFile} into Chromium NSS database`,
+    );
+  }
+
+  console.info(
+    `Using trusted root CA ${trustedRootCaFile} for Chromium page retrieval`,
+  );
+  chromiumTrustedRootCaReady = true;
+  return CHROMIUM_HOME_DIR;
+}
+
 export class Browser {
   constructor(homeAssistantUrl) {
     this.homeAssistantUrl = homeAssistantUrl;
@@ -336,13 +409,19 @@ export class Browser {
       console.warn(
         "Allowing insecure TLS for Home Assistant browser page retrieval",
       );
+    } else if (trustedRootCa) {
+      console.info("Preparing trusted root CA for browser page retrieval");
     }
+    const chromiumHomeDir = ensureChromiumTrustedRootCa();
     // We don't catch these errors on purpose, as we're
     // not able to recover once the app fails to start.
     const browser = await puppeteer.launch({
       headless: "shell",
       executablePath: chromiumExecutable,
       acceptInsecureCerts: allowInsecureHomeAssistantSsl,
+      env: chromiumHomeDir
+        ? { ...process.env, HOME: chromiumHomeDir }
+        : process.env,
       args: puppeteerArgs,
     });
     const page = await browser.newPage();

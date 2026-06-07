@@ -4,6 +4,7 @@
   "chromium_executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "keep_browser_open": false,
   "allow_insecure_home_assistant_ssl": false,
+  "trusted_root_ca_file": "",
   "ssl": false,
   "certfile": "",
   "keyfile": ""

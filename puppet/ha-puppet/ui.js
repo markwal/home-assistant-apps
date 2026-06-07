@@ -15,6 +15,7 @@ import {
   hassToken,
   isAddOn,
   serverSsl,
+  trustedRootCa,
 } from "./const.js";
 import { loadDevicesConfig } from "./devices.js";
 
@@ -55,10 +56,12 @@ async function createDiagnosticSocket(options) {
     console.warn(
       `Allowing insecure TLS for Home Assistant websocket ${wsUrl}`,
     );
+  } else if (trustedRootCa) {
+    console.info(`Using trusted root CA for Home Assistant websocket ${wsUrl}`);
   }
 
   const OriginalWebSocket = globalThis.WebSocket;
-  const BaseWebSocket = allowInsecureHomeAssistantSsl
+  const BaseWebSocket = allowInsecureHomeAssistantSsl || trustedRootCa
     ? NodeWebSocket
     : OriginalWebSocket;
 
@@ -66,6 +69,8 @@ async function createDiagnosticSocket(options) {
     constructor(url, protocols) {
       if (allowInsecureHomeAssistantSsl) {
         super(url, protocols, { rejectUnauthorized: false });
+      } else if (trustedRootCa) {
+        super(url, protocols, { ca: trustedRootCa });
       } else {
         super(url, protocols);
       }
@@ -92,7 +97,7 @@ async function createDiagnosticSocket(options) {
   }
 }
 
-function fetchJsonWithInsecureTls(url, options) {
+function fetchJsonWithCustomTls(url, options, tlsOptions) {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
     const client = parsedUrl.protocol === "https:" ? https : http;
@@ -101,7 +106,7 @@ function fetchJsonWithInsecureTls(url, options) {
       {
         method: options.method || "GET",
         headers: options.headers,
-        rejectUnauthorized: parsedUrl.protocol === "https:" ? false : undefined,
+        ...tlsOptions,
       },
       (response) => {
         let body = "";
@@ -133,11 +138,17 @@ function fetchHomeAssistantConfig(configUrl, token) {
   };
 
   if (
-    allowInsecureHomeAssistantSsl &&
+    (allowInsecureHomeAssistantSsl || trustedRootCa) &&
     new URL(configUrl).protocol === "https:"
   ) {
-    console.warn(`Allowing insecure TLS for Home Assistant REST ${configUrl}`);
-    return fetchJsonWithInsecureTls(configUrl, options);
+    if (allowInsecureHomeAssistantSsl) {
+      console.warn(`Allowing insecure TLS for Home Assistant REST ${configUrl}`);
+      return fetchJsonWithCustomTls(configUrl, options, {
+        rejectUnauthorized: false,
+      });
+    }
+    console.info(`Using trusted root CA for Home Assistant REST ${configUrl}`);
+    return fetchJsonWithCustomTls(configUrl, options, { ca: trustedRootCa });
   }
 
   return fetch(configUrl, options);

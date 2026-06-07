@@ -287,6 +287,7 @@ GET /home?viewport=1000x600&format=png&theme=midnight&dark&zoom=1.2
 access_token: "long_lived_token_here"
 keep_browser_open: false  # Keep browser alive between requests
 home_assistant_url: "http://homeassistant:8123"  # HA base URL
+trusted_root_ca_file: ""  # Root CA in /ssl for HA HTTPS validation
 allow_insecure_home_assistant_ssl: false  # Allow untrusted HA HTTPS certs
 ssl: false  # Serve Puppet over HTTPS on port 10000
 certfile: "fullchain.pem"  # Certificate in /ssl when ssl is true

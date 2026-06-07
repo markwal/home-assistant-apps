@@ -17,6 +17,7 @@ options:
   keep_browser_open: false
   home_assistant_url: "http://homeassistant:8123"
   allow_insecure_home_assistant_ssl: false
+  trusted_root_ca_file: ""
   ssl: false
   certfile: "fullchain.pem"
   keyfile: "privkey.pem"
@@ -25,6 +26,7 @@ schema:
   keep_browser_open: bool
   home_assistant_url: str
   allow_insecure_home_assistant_ssl: bool
+  trusted_root_ca_file: str
   ssl: bool
   certfile: str
   keyfile: str
